@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Оставить отзыв</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; width: 100%; max-width: 500px; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        p#target-teacher { text-align: center; font-weight: bold; color: #764ba2; font-size: 1.1rem; margin-bottom: 20px; background: #eef2f5; padding: 10px; border-radius: 8px; }
+        label { display: block; margin-top: 15px; font-weight: 600; color: #555; font-size: 0.9rem; }
+        
+        /* Звезды */
+        .stars-container { display: flex; gap: 10px; justify-content: center; margin-top: 5px; cursor: pointer; }
+        .star { font-size: 2rem; transition: color 0.2s; user-select: none; }
+        .star.active { color: #ffc107; }
+        .star:hover { color: #ffc107; opacity: 0.7; }
+
+        input[type="text"], textarea { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 1rem; }
+        textarea { resize: vertical; min-height: 120px; }
+        button { margin-top: 25px; width: 100%; padding: 15px; background-color: #4caf50; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background 0.3s; text-transform: uppercase; }
+        button:hover { background-color: #43a047; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .status-message { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; display: none; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        #rating-value { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Оставить отзыв преподавателю</h2>
+        <p id="target-teacher">Загрузка...</p>
+
+        <form id="reviewForm">
+            <label for="author-name">Ваше имя:</label>
+            <input type="text" id="author-name" placeholder="Например: Иван Иванов" required>
+
+            <label>Оценка (нажмите на звёзды):</label>
+            <div class="stars-container" id="stars">
+                <span class="star" data-value="1">★</span>
+                <span class="star" data-value="2">★</span>
+                <span class="star" data-value="3">★</span>
+                <span class="star" data-value="4">★</span>
+                <span class="star" data-value="5">★</span>
+            </div>
+            <input type="hidden" id="rating-value" value="0">
+
+            <label for="review-text">Ваш комментарий:</label>
+            <textarea id="review-text" placeholder="Напишите, что вам понравилось..." required></textarea>
+
+            <button type="submit" id="submitBtn">Отправить отзыв</button>
+            <div class="status-message success" id="successMsg">Спасибо! Отзыв сохранен.</div>
+        </form>
+    </div>
+
+    <script>
+        // 1. Получаем имя преподавателя из адресной строки
+        const urlParams = new URLSearchParams(window.location.search);
+        const teacherName = decodeURIComponent(urlParams.get('teacher') || urlParams.get('student')); // Поддержка обоих вариантов
+        
+        document.getElementById('target-teacher').textContent = teacherName;
+
+        // 2. Логика звезд
+        const stars = document.querySelectorAll('.star');
+        const ratingInput = document.getElementById('rating-value');
+
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const value = star.getAttribute('data-value');
+                ratingInput.value = value;
+                
+                // Подсветка звезд
+                stars.forEach((s, index) => {
+                    if (index < value) s.classList.add('active');
+                    else s.classList.remove('active');
+                });
+            });
+            
+            // Подсветка при наведении
+            star.addEventListener('mouseover', () => {
+                stars.forEach((s, index) => {
+                    if (index < star.getAttribute('data-value')) s.classList.add('active');
+                    else s.classList.remove('active');
+                });
+            });
+        });
+
+        // Сброс подсветки при уходе мыши
+        const starsContainer = document.getElementById('stars');
+        starsContainer.addEventListener('mouseout', () => {
+            stars.forEach(s => s.classList.remove('active'));
+        });
+
+        // 3. СОХРАНЕНИЕ ОТЗЫВА
+        document.getElementById('reviewForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const author = document.getElementById('author-name').value;
+            const rating = ratingInput.value;
+            const text = document.getElementById('review-text').value;
+
+            if (!rating || rating === '0') {
+                alert("Пожалуйста, поставьте оценку!");
+                return;
+            }
+
+            // Создаем объект отзыва
+            const newReview = {
+                author: author,
+                rating: parseInt(rating),
+                text: text,
+                date: new Date().toLocaleDateString()
+            };
+
+            // Получаем все отзывы для этого преподавателя
+            let reviews = JSON.parse(localStorage.getItem(`reviews_${teacherName}`) || '[]');
+            
+            // Добавляем новый
+            reviews.push(newReview);
+            
+            // Сохраняем обратно в браузер
+            localStorage.setItem(`reviews_${teacherName}`, JSON.stringify(reviews));
+
+            // Показываем сообщение об успехе
+            document.getElementById('successMsg').style.display = 'block';
+            document.getElementById('submitBtn').disabled = true;
+            
+            setTimeout(() => {
+                window.location.href = `teacher-page.html?teacher=${encodeURIComponent(teacherName)}`; // Возвращаемся на страницу преподавателя
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
